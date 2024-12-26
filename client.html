@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #333;
+        }
+
+        div {
+            margin-bottom: 20px;
+        }
+
+        form {
+            margin-top: 10px;
+        }
+
+        input,
+        select {
+            padding: 8px;
+            margin: 5px 0;
+            width: 20%;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        input[type="submit"] {
+            width: 150px;
+            /* Reduced width for buttons */
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 10px;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #218838;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ddd;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/babel-standalone@6.26.0/babel.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.js"></script>
+
+
+    <script type="text/babel">
+        const rootHandle = document.getElementById('root');
+
+        const { useState, useEffect } = React;
+       
+
+
+
+        const CategoryResult = ({ categories }) => {
+            return (
+                <div>
+                    <h2>Listing categories</h2>
+                    {categories.map((ele) => (
+                        <li key={ele._id}>{ele.name}</li>
+                    ))}
+                </div>
+            );
+        };
+
+
+        const ExpenseResult = ({ expenses, categories }) => {
+            return (
+                <div>
+                    <h2>Listing expenses</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Amount</th>
+                                <th>Category</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {expenses.map((expense) => {
+                                const category = categories.find(cat => cat._id === expense.categoryId);
+                                const formattedDate = expense.expenseDate
+                                    ? new Date(expense.expenseDate).toLocaleDateString()
+                                    : 'N/A';
+                                return (
+                                    <tr key={expense._id}>
+                                        <td>{expense.title}</td>
+                                        <td>{expense.amount}</td>
+                                        <td>{category ? category.name : 'Unknown'}</td>
+                                        <td>{formattedDate}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        };
+
+
+
+        const ExpenseForm = ({ categories, handleExpenseResponse }) => {
+            const [title, setTitle] = useState('');
+            const [amount, setAmount] = useState('');
+            const [category, setCategory] = useState('');
+            const [date, setDate] = useState('');
+
+            const handleExpenseSubmit = (e) => {
+                e.preventDefault();
+                const formData = {
+                    title,
+                    amount,
+                    categoryId: category,
+                    expenseDate: date
+                };
+                axios.post('http://localhost:3061/api/expenses', formData)
+                    .then((res) => {
+                        handleExpenseResponse(res.data);
+                        setTitle("")
+                        setAmount("")
+                        setCategory("")
+                        setDate("")
+                    })
+                    .catch((e) => {
+                        console.log(e.message);
+                    });
+            };
+
+            return (
+                <div>
+                    <u><h2>Add Expenses Here:</h2></u>
+                    <form onSubmit={handleExpenseSubmit}>
+                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter title" />
+                        <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Enter amount" />
+                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                        <select onChange={(e) => setCategory(e.target.value)}>
+                            <option value="">Select category</option>
+                            {categories.map((ele) => (
+                                <option key={ele._id} value={ele._id}>{ele.name}</option>
+                            ))}
+                        </select>
+                        <input type="submit" value="Add Expense" />
+                    </form>
+                </div>
+            );
+        };
+
+
+
+        const CategoryForm = ({ handleResponse }) => {
+            const [input, setInput] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                axios.post('http://localhost:3061/api/categories', { name: input })
+                    .then((res) => {
+                        handleResponse(res.data);
+                        setInput('');
+                    })
+                    .catch((e) => {
+                        console.log(e.message);
+                    });
+            };
+
+            return (
+                <div>
+                    <u><h3>Create Categories Here:</h3></u>
+                    <form onSubmit={handleSubmit}>
+                        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Enter category name" />
+                        <input type="submit" value="Create Category" />
+                    </form>
+                </div>
+            );
+        };
+
+
+
+
+        const App = (props) => {
+            const [categories, setCategories] = useState([]);
+            const [expenses, setExpenses] = useState([]);
+
+            // use axios.all
+            useEffect(() => {
+                axios.all([axios.get('http://localhost:3061/api/categories'), axios.get('http://localhost:3061/api/expenses')])
+                    .then(axios.spread((res1, res2) => {
+                        setCategories(res1.data)
+                        setExpenses(res2.data)
+
+                    }))
+            }, [])
+
+
+
+
+            // useEffect(() => {
+            //     axios.get('http://localhost:3061/api/categories')
+            //         .then((res) => setCategories(res.data))
+            //         .catch((e) => console.log(e.message));
+            // }, []);
+
+            // useEffect(() => {
+            //     axios.get('http://localhost:3061/api/expenses')
+            //         .then((res) => setExpenses(res.data))
+            //         .catch((e) => console.log(e.message));
+            // }, []);
+
+            const handleResponse = (obj) => {
+                setCategories([...categories, obj]);
+            };
+            const handleExpenseResponse = (obj) => {
+                setExpenses([...expenses, obj]);
+            };
+
+            const total = expenses.reduce((acc, cv) => {
+                return acc + cv.amount
+            }, 0)
+
+
+
+
+            return (
+                <div>
+
+                    <h1>Expense Tracker App</h1>
+                    <h1> Total expenses - {total} Rs </h1>
+                    <CategoryForm handleResponse={handleResponse} />
+                    <CategoryResult categories={categories} />
+                    <ExpenseForm categories={categories} handleExpenseResponse={handleExpenseResponse} />
+                    <ExpenseResult expenses={expenses} categories={categories} />
+                
+
+
+
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, rootHandle);
+    </script>
+</body>
+
+</html>
